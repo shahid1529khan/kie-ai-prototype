@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import ws from 'ws';
 import dotenv from "dotenv";
 
 dotenv.config({ path: ".env.local" });
@@ -18,4 +19,10 @@ if (!supabaseUrl || !supabaseKey) {
 
 // Server-side supabase client uses the Service Role Key to bypass RLS policies
 // and administrate the database natively.
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    realtime: { transport: ws }   // ← this is the entire fix
+  }
+);

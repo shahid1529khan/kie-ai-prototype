@@ -1,4 +1,11 @@
+<<<<<<< HEAD
 {
   "build": { "builder": "NIXPACKS" },
   "deploy": { "startCommand": "npm run build && npm start" }
+=======
+{
+  "deploy": {
+    "startCommand": "npm start"
+  }
+>>>>>>> 7e238ed (Fix Railway: pin Node 20, remove redundant build in start)
 }
