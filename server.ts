@@ -124,25 +124,45 @@ async function startServer() {
   app.post("/api/video/upload", authenticate, upload.single("file"), async (req: any, res: any) => {
     try {
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-      
-      const formData = new FormData();
-      const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
-      formData.append("file", blob, req.file.originalname);
 
       const KIE_AI_API_KEY = (process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY)?.trim();
       if (!KIE_AI_API_KEY) throw new Error("KIE_AI_API_KEY is not configured.");
-      const response = await fetch("https://api.kie.ai/api/v1/files/upload", {
+
+      // kie.ai file upload lives on kieai.redpandaai.co (NOT api.kie.ai)
+      // It needs `file`, `uploadPath`, and optionally `fileName` as multipart form fields.
+      const formData = new FormData();
+      const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
+      formData.append("file", blob, req.file.originalname);
+      formData.append("uploadPath", "images/user-uploads");
+      formData.append("fileName", req.file.originalname);
+
+      const response = await fetch("https://kieai.redpandaai.co/api/file-stream-upload", {
         method: "POST",
         headers: { Authorization: `Bearer ${KIE_AI_API_KEY}` },
         body: formData as any
       });
-      
-      const data = await response.json();
-      if (data.code !== 200) throw new Error(data.msg || "Upload failed");
-      const imageUrl = data.data?.downloadUrl ?? data.data?.url ?? data.data?.fileUrl;
-      if (!imageUrl) throw new Error("Upload succeeded but no URL returned by kie.ai");
+
+      const responseText = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch {
+        throw new Error(`kie.ai upload returned non-JSON: ${responseText.slice(0, 200)}`);
+      }
+
+      if (data.code !== 200 || !data.success) {
+        throw new Error(data.msg || data.message || "Upload failed");
+      }
+
+      // Response shape: { code:200, data: { downloadUrl, filePath, ... } }
+      const imageUrl = data.data?.downloadUrl ?? data.data?.fileUrl ?? data.data?.url;
+      if (!imageUrl) {
+        throw new Error("Upload succeeded but no URL returned by kie.ai");
+      }
+
       res.json({ url: imageUrl });
     } catch (err: any) {
+      console.error("[upload] error:", err);
       res.status(500).json({ error: err.message });
     }
   });
