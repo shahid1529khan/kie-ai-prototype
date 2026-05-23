@@ -139,7 +139,9 @@ async function startServer() {
       
       const data = await response.json();
       if (data.code !== 200) throw new Error(data.msg || "Upload failed");
-      res.json({ url: data.data.url });
+      const imageUrl = data.data?.downloadUrl ?? data.data?.url ?? data.data?.fileUrl;
+      if (!imageUrl) throw new Error("Upload succeeded but no URL returned by kie.ai");
+      res.json({ url: imageUrl });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -184,82 +186,30 @@ async function startServer() {
     try {
       const { taskId } = req.params;
       const { generationId } = req.query;
-      
-      const taskData = await pollTask(taskId);
-      
-      if (taskData.code !== 200) {
-        throw new Error(taskData.msg || "Failed to poll task");
-      }
 
-      const status = taskData.data?.status?.toLowerCase();
-      console.log("Polling result for task", taskId, ":", JSON.stringify(taskData, null, 2));
-      
-      // Try multiple ways to find the result URL
-      let resultUrl = taskData.data?.output?.image_url || 
-                      taskData.data?.output?.video_url || 
-                      taskData.data?.result_url || 
-                      taskData.data?.image_url || 
-                      taskData.data?.video_url;
-                      
-      // Additional fallback for URL extraction:
-      if (!resultUrl && taskData.data?.images && taskData.data.images.length > 0) {
-        resultUrl = taskData.data.images[0].url || taskData.data.images[0];
-      }
-      if (!resultUrl && taskData.data?.output && typeof taskData.data.output === 'string' && taskData.data.output.startsWith('http')) {
-        resultUrl = taskData.data.output;
-      }
-      if (!resultUrl && taskData.data?.image_url) {
-        resultUrl = taskData.data.image_url;
-      }
-      if (!resultUrl && taskData.data?.url) { // Sometimes it's right in data.url
-        resultUrl = taskData.data.url;
-      }
-      if (!resultUrl && taskData.data?.urls?.[0]) {
-        resultUrl = taskData.data.urls[0];
-      }
-      if (!resultUrl && taskData.data?.task_result?.image_url) {
-        resultUrl = taskData.data.task_result.image_url;
-      }
-      if (!resultUrl && (status === "succeed" || status === "success" || status === "completed")) {
-        // Find ANY deeply nested string that starts with http and ends with png/jpg/mp4
-        const searchForUrl = (obj: any): string | null => {
-            if (typeof obj === 'string') {
-                if (obj.startsWith('http') && (obj.match(/\.(png|jpe?g|mp4|gif|webp)$/i) || obj.includes('url='))) return obj;
-                if (obj.startsWith('http')) return obj; // fallback
-                return null;
-            }
-            if (obj && typeof obj === 'object') {
-                for (const key of Object.keys(obj)) {
-                    const res = searchForUrl(obj[key]);
-                    if (res) return res;
-                }
-            }
-            return null;
-        };
-        resultUrl = searchForUrl(taskData.data);
-      }
-      
-      if (status === "succeed" || status === "success" || status === "completed" || status === "done" || status === "finished") {
-        
+      const { state, resultUrl, errorMsg } = await pollTask(taskId);
+
+      console.log(`[poll] taskId=${taskId} state=${state} resultUrl=${resultUrl}`);
+
+      if (state === "success") {
         if (generationId && isSupabaseConfigured) {
           await supabase.from("generations").update({
             status: "completed",
             result_url: resultUrl,
             completed_at: new Date().toISOString()
-          }).eq("id", generationId).neq("id", "null");
+          }).eq("id", generationId as string);
         }
         return res.json({ status: "completed", resultUrl });
       }
-      
-      if (status === "failed" || status === "error") {
-        const errorMsg = taskData.data?.error || "Generation failed";
+
+      if (state === "fail") {
         if (generationId && isSupabaseConfigured) {
           await supabase.from("generations").update({
             status: "failed",
             error_message: errorMsg
-          }).eq("id", generationId).neq("id", "null");
+          }).eq("id", generationId as string);
         }
-        return res.json({ status: "failed", error: errorMsg });
+        return res.json({ status: "failed", error: errorMsg || "Generation failed" });
       }
 
       res.json({ status: "processing" });
