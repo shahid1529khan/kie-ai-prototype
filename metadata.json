@@ -1,0 +1,8 @@
+{
+  "name": "Kie.ai Generation Prototype",
+  "description": "An AI image and video generation web app using kie.ai API, with Supabase integration and full dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
