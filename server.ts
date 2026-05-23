@@ -40,7 +40,7 @@ async function startServer() {
   app.post("/api/auth/register", async (req: any, res: any) => {
     try {
       if (!isSupabaseConfigured) {
-        return res.status(500).json({ error: "Supabase is not configured. Please add VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to your AI Studio Secrets (settings menu)." });
+        return res.status(500).json({ error: "Supabase is not configured. Please configure VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your environment variables." });
       }
       
       const { email, password, name } = req.body;
@@ -68,7 +68,7 @@ async function startServer() {
   app.post("/api/auth/login", async (req: any, res: any) => {
     try {
       if (!isSupabaseConfigured) {
-        return res.status(500).json({ error: "Supabase is not configured. Please add VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to your AI Studio Secrets (settings menu)." });
+        return res.status(500).json({ error: "Supabase is not configured. Please configure VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in your environment variables." });
       }
       
       const { email, password } = req.body;

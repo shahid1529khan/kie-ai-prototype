@@ -31,4 +31,4 @@ Navigate to `http://localhost:3000`.
 
 ## Architecture Decisions
 
-This app was transitioned from the requested App Router to a React Router SPA + Express Backend because the AI Studio environment relies exclusively on Vite for serving custom React applications. The architectural properties (server-side API obfuscation, backend DB interactions, JWT flow) remain exactly identical to standard Next.js route handlers.
+This app uses a React Router SPA with an Express backend. The backend handles API key protection, database access, authentication, and generation workflows.
